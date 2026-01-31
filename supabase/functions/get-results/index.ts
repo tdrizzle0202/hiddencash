@@ -68,11 +68,13 @@ serve(async (req) => {
     const isSubscribed = subscription?.is_subscribed ?? false;
 
     // Get user's claims with full claim details
-    const { data: userClaims, error: claimsError } = await supabaseClient
+    // For subscribers with drip system, only show revealed claims
+    let claimsQuery = supabaseClient
       .from("user_claims")
       .select(`
         id,
         status,
+        revealed,
         created_at,
         claim:claims (
           id,
@@ -86,7 +88,15 @@ serve(async (req) => {
           claim_url
         )
       `)
-      .eq("user_id", user.id)
+      .eq("user_id", user.id);
+
+    // Subscribers only see revealed claims (drip system)
+    // Free users see all claims (revealed defaults to true for them)
+    if (isSubscribed) {
+      claimsQuery = claimsQuery.eq("revealed", true);
+    }
+
+    const { data: userClaims, error: claimsError } = await claimsQuery
       .order("created_at", { ascending: false });
 
     if (claimsError) {

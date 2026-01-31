@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Claim } from "@/lib/supabase";
+import { fonts } from "@/constants/theme";
 
 interface ClaimCardProps {
   claim: Claim;
@@ -106,16 +107,17 @@ const styles = StyleSheet.create({
   },
   stateText: {
     color: "#fff",
-    fontWeight: "600",
+    fontFamily: fonts.semiBold,
     fontSize: 12,
   },
   amount: {
     fontSize: 22,
-    fontWeight: "bold",
+    fontFamily: fonts.bold,
     color: "#10B981",
   },
   amountText: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: "#6B7280",
   },
   lockedAmount: {
@@ -128,6 +130,7 @@ const styles = StyleSheet.create({
   },
   lockedText: {
     color: "#6B7280",
+    fontFamily: fonts.regular,
     fontSize: 14,
     marginLeft: 4,
   },
@@ -139,12 +142,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: "#6B7280",
   },
   value: {
     fontSize: 14,
     color: "#1F2937",
-    fontWeight: "500",
+    fontFamily: fonts.medium,
     maxWidth: "60%",
     textAlign: "right",
   },
@@ -162,6 +166,7 @@ const styles = StyleSheet.create({
   },
   tapText: {
     fontSize: 13,
+    fontFamily: fonts.regular,
     color: "#9CA3AF",
     marginRight: 4,
   },
@@ -177,6 +182,6 @@ const styles = StyleSheet.create({
   newBadgeText: {
     color: "#fff",
     fontSize: 10,
-    fontWeight: "bold",
+    fontFamily: fonts.bold,
   },
 });

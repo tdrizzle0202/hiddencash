@@ -43,7 +43,14 @@ interface RevealedClaim {
 
 const ZENROWS_API_KEY = Deno.env.get("ZENROWS_API_KEY") ?? "";
 const REVENUECAT_API_KEY = Deno.env.get("REVENUECAT_API_KEY") ?? "";
+
+// Pro subscribers get 5 claims revealed per week
 const CLAIMS_PER_DRIP = 5;
+
+// Sleep helper for retry delays
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // State URLs (same as search function)
 const STATES: Record<string, { url: string; name: string }> = {
@@ -140,13 +147,14 @@ async function verifySubscription(userId: string): Promise<boolean> {
 }
 
 /**
- * Fetch a page from ZenRows for any state
+ * Fetch a page from ZenRows for any state with exponential backoff retry
  */
 async function fetchPage(
   firstName: string,
   lastName: string,
   stateCode: string,
-  page: number
+  page: number,
+  maxRetries = 3
 ): Promise<{ results: ClaimResult[]; totalPages: number }> {
   const state = STATES[stateCode];
   if (!state) {
@@ -171,9 +179,12 @@ async function fetchPage(
           { fill: ["input[name='firstName'], input[id*='firstName'], input[id*='first']", firstName || ""] },
           { wait: 1000 },
           { click: "button[type='submit'], input[type='submit']" },
+          { wait: 12000 },
+          // Click pagination using specific pager ID (not generic .pagination which has multiple elements)
+          // Pagination structure: First, Previous, 1, 2, 3... Next, Last
+          // nth-child: 1=First, 2=Previous, 3=Page1, 4=Page2, etc. So page N is at nth-child(N+2)
+          { click: `#topPropertySearchResultsPager li:nth-child(${page + 2}) a` },
           { wait: 10000 },
-          { click: `[aria-label='Page ${page}'], #topPropertySearchResultsPager li:nth-child(${page + 2}) a, .pagination li:nth-child(${page + 1}) a` },
-          { wait: 8000 },
         ];
 
   const cacheBuster = Date.now();
@@ -189,28 +200,59 @@ async function fetchPage(
     wait: "10000",
   });
 
-  const response = await fetch(`https://api.zenrows.com/v1/?${params}`, {
-    method: "GET",
-  });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(`ZenRows error: ${response.status}`);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        // Exponential backoff: 2s, 4s, 8s...
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`[ZenRows] Retry attempt ${attempt + 1}/${maxRetries} for ${stateCode} page ${page} after ${delay}ms`);
+        await sleep(delay);
+      }
+
+      const response = await fetch(`https://api.zenrows.com/v1/?${params}`, {
+        method: "GET",
+      });
+
+      // Retry on 429 (rate limit) or 5xx errors
+      if (response.status === 429 || response.status >= 500) {
+        lastError = new Error(`ZenRows error: ${response.status}`);
+        console.log(`[ZenRows] Retryable error ${response.status} for ${stateCode} page ${page}`);
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`ZenRows error: ${response.status}`);
+      }
+
+      const html = await response.text();
+
+      // Check for Turnstile block
+      if (
+        !html.includes('turnstile-modal" class="d-none') &&
+        html.toLowerCase().includes("check the box")
+      ) {
+        throw new Error("Blocked by Turnstile CAPTCHA");
+      }
+
+      const results = parseResults(html, stateCode);
+      const totalPages = getPaginationInfo(html).totalPages;
+
+      return { results, totalPages };
+    } catch (error) {
+      lastError = error as Error;
+      // Retry on network errors
+      if (error instanceof TypeError || (error as any).code === "ECONNRESET") {
+        console.log(`[ZenRows] Network error for ${stateCode} page ${page}: ${(error as Error).message}`);
+        continue;
+      }
+      // Don't retry on other errors (like CAPTCHA blocks)
+      throw error;
+    }
   }
 
-  const html = await response.text();
-
-  // Check for Turnstile block
-  if (
-    !html.includes('turnstile-modal" class="d-none') &&
-    html.toLowerCase().includes("check the box")
-  ) {
-    throw new Error("Blocked by Turnstile CAPTCHA");
-  }
-
-  const results = parseResults(html, stateCode);
-  const totalPages = getPaginationInfo(html).totalPages;
-
-  return { results, totalPages };
+  throw lastError || new Error(`ZenRows failed after ${maxRetries} attempts`);
 }
 
 
@@ -316,10 +358,10 @@ async function sendPushNotification(
     return;
   }
 
-  const title = isFinal ? "Audit Complete" : "New Properties Found!";
+  const title = isFinal ? "Audit Complete" : "Your Weekly Claims Are Ready!";
   const body = isFinal
     ? `We've scanned all available pages for your name. We'll continue monitoring for new listings.`
-    : `We found ${claimsCount} more unclaimed properties worth $${totalAmount.toLocaleString()}!`;
+    : `You have ${claimsCount} new unclaimed properties worth $${totalAmount.toLocaleString()} to review this week!`;
 
   const messages = tokens.map((t: { token: string }) => ({
     to: t.token,
@@ -409,10 +451,11 @@ serve(async (req) => {
 
         let revealedClaims: RevealedClaim[] = [];
         let needsFetch = candidate.unrevealed_count < CLAIMS_PER_DRIP && candidate.needs_fetch;
+        let currentPage = candidate.current_page; // Track the actual current page
 
         // Step 1: If we need more claims, fetch next page
         if (needsFetch) {
-          const nextPage = candidate.current_page + 1;
+          const nextPage = currentPage + 1;
           console.log(
             `Fetching page ${nextPage} for ${candidate.first_name} ${candidate.last_name} (${candidate.state_code})`
           );
@@ -458,14 +501,17 @@ serve(async (req) => {
               p_new_page: nextPage,
               p_total_pages: totalPages,
             });
+
+            // Update local tracking of current page
+            currentPage = nextPage;
           } catch (fetchError) {
             console.error(`Failed to fetch page: ${fetchError}`);
             // Continue to reveal what we have
           }
         }
 
-        // Step 2: Reveal up to 5 claims
-        const { data: revealed, error: revealError } = await supabase.rpc("reveal_claims", {
+        // Step 2: Reveal up to 5 claims (using cache_id version for drip pagination)
+        const { data: revealed, error: revealError } = await supabase.rpc("reveal_claims_by_cache", {
           p_user_id: candidate.user_id,
           p_cache_id: candidate.cache_id,
           p_limit: CLAIMS_PER_DRIP,
@@ -488,9 +534,10 @@ serve(async (req) => {
             p_cache_id: candidate.cache_id,
           });
 
+          // Use currentPage (which may have been updated after fetch) for accurate check
           const hasMorePages =
             candidate.total_pages !== null &&
-            candidate.current_page < candidate.total_pages;
+            currentPage < candidate.total_pages;
 
           if (unrevealed === 0 && !hasMorePages) {
             // Mark as complete and send final notification
@@ -518,9 +565,10 @@ serve(async (req) => {
           p_cache_id: candidate.cache_id,
         });
 
+        // Use currentPage (which may have been updated after fetch) for accurate check
         const hasMorePages =
           candidate.total_pages !== null &&
-          candidate.current_page < candidate.total_pages;
+          currentPage < candidate.total_pages;
 
         const isFinal = remainingCount === 0 && !hasMorePages;
 

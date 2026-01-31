@@ -18,11 +18,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.terrykim.hiddencash",
+      "backgroundColor": "#F9FAFB",
       "usesAppleSignIn": true,
+      "userInterfaceStyle": "light",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIViewControllerBasedStatusBarAppearance": true
       }
     },
     "android": {
@@ -62,8 +66,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "63df3cf3-5ccf-4308-8246-1504bb01f170"
       }
-    }
+    },
+    "owner": "0202terry"
   }
 }

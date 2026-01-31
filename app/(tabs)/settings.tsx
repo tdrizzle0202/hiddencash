@@ -3,267 +3,126 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
-  ScrollView,
   Linking,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { fonts, colors, spacing } from "@/constants/theme";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { useSubscription } from "@/lib/hooks/useSubscription";
-import { useState } from "react";
-import { PaywallModal } from "@/components/PaywallModal";
+
+const DARK_GREEN = "#1A3D34";
+const __DEV__ = process.env.NODE_ENV === "development";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, signOut, loading } = useAuth();
-  const { isSubscribed, restore, loading: subscriptionLoading } = useSubscription();
-  const [showPaywall, setShowPaywall] = useState(false);
+  const { user } = useAuth();
 
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-            router.replace("/");
-          } catch (error: any) {
-            Alert.alert("Error", error.message);
-          }
-        },
-      },
+  const handleRateUs = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // TODO: Replace with actual App Store link
+    Linking.openURL("https://apps.apple.com");
+  };
+
+  const handleResetOnboarding = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!user) return;
+
+    await supabase
+      .from("user_profiles")
+      .update({ has_completed_onboarding: false })
+      .eq("user_id", user.id);
+
+    Alert.alert("Done", "Onboarding reset. Restart the app.", [
+      { text: "OK", onPress: () => router.replace("/") }
     ]);
   };
 
-  const handleRestorePurchases = async () => {
-    try {
-      const restored = await restore();
-      if (restored) {
-        Alert.alert("Success", "Your purchases have been restored!");
-      } else {
-        Alert.alert(
-          "No Purchases Found",
-          "We couldn't find any previous purchases to restore."
-        );
-      }
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to restore purchases");
-    }
+  const handlePrivacy = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Linking.openURL("https://hiddencash.netlify.app/privacy-policy.md");
+  };
+
+  const handleTerms = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Linking.openURL("https://hiddencash.netlify.app/terms-of-service.md");
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.container}>
         <View style={styles.card}>
-          <View style={styles.row}>
-            <Ionicons name="mail-outline" size={20} color="#6B7280" />
-            <Text style={styles.rowText}>{user?.email}</Text>
-          </View>
-        </View>
-      </View>
+          {/* Rate us */}
+          <TouchableOpacity style={styles.menuItem} onPress={handleRateUs}>
+            <Ionicons name="star-outline" size={22} color={colors.white} />
+            <Text style={styles.menuItemText}>Rate us</Text>
+          </TouchableOpacity>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Subscription</Text>
-        <View style={styles.card}>
-          <View style={styles.subscriptionRow}>
-            <View>
-              <Text style={styles.subscriptionStatus}>
-                {isSubscribed ? "Premium" : "Free"}
-              </Text>
-              <Text style={styles.subscriptionDetail}>
-                {isSubscribed
-                  ? "Unlimited searches & full claim details"
-                  : "Up to 3 states per search"}
-              </Text>
-            </View>
-            {!isSubscribed && (
-              <TouchableOpacity
-                style={styles.upgradeButton}
-                onPress={() => setShowPaywall(true)}
-              >
-                <Text style={styles.upgradeButtonText}>Upgrade</Text>
+          <View style={styles.divider} />
+
+          {/* Privacy */}
+          <TouchableOpacity style={styles.menuItem} onPress={handlePrivacy}>
+            <Ionicons name="lock-closed-outline" size={22} color={colors.white} />
+            <Text style={styles.menuItemText}>Privacy</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Terms */}
+          <TouchableOpacity style={styles.menuItem} onPress={handleTerms}>
+            <Ionicons name="document-outline" size={22} color={colors.white} />
+            <Text style={styles.menuItemText}>Terms</Text>
+          </TouchableOpacity>
+
+          {/* Dev only: Reset Onboarding */}
+          {__DEV__ && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.menuItem} onPress={handleResetOnboarding}>
+                <Ionicons name="refresh-outline" size={22} color={colors.white} />
+                <Text style={styles.menuItemText}>Reset Onboarding</Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </>
+          )}
         </View>
-
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={handleRestorePurchases}
-          disabled={subscriptionLoading}
-        >
-          <Text style={styles.linkText}>
-            {subscriptionLoading ? "Restoring..." : "Restore Purchases"}
-          </Text>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
       </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL("https://hiddencash.netlify.app/#faq")}
-        >
-          <View style={styles.linkRowContent}>
-            <Ionicons name="help-circle-outline" size={20} color="#6B7280" />
-            <Text style={styles.linkRowText}>Help & FAQ</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL("mailto:tbhapp1234@gmail.com")}
-        >
-          <View style={styles.linkRowContent}>
-            <Ionicons name="chatbubble-outline" size={20} color="#6B7280" />
-            <Text style={styles.linkRowText}>Contact Support</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL("https://hiddencash.netlify.app/terms")}
-        >
-          <View style={styles.linkRowContent}>
-            <Ionicons name="document-text-outline" size={20} color="#6B7280" />
-            <Text style={styles.linkRowText}>Terms of Service</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL("https://hiddencash.netlify.app/privacy")}
-        >
-          <View style={styles.linkRowContent}>
-            <Ionicons name="shield-outline" size={20} color="#6B7280" />
-            <Text style={styles.linkRowText}>Privacy Policy</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-          disabled={loading}
-        >
-          <Text style={styles.signOutText}>
-            {loading ? "Signing Out..." : "Sign Out"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.version}>HiddenCash v1.0.0</Text>
-
-      <PaywallModal
-        visible={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        onSuccess={() => setShowPaywall(false)}
-      />
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
-  },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: "uppercase",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: DARK_GREEN,
+    borderRadius: 20,
+    paddingVertical: spacing.md,
   },
-  row: {
+  menuItem: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
-  rowText: {
-    fontSize: 16,
-    color: "#1F2937",
-    marginLeft: 12,
+  menuItemText: {
+    fontSize: 17,
+    fontFamily: fonts.medium,
+    color: colors.white,
   },
-  subscriptionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  subscriptionStatus: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  subscriptionDetail: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  upgradeButton: {
-    backgroundColor: "#10B981",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  upgradeButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  linkRow: {
-    backgroundColor: "#fff",
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  linkRowContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  linkRowText: {
-    fontSize: 16,
-    color: "#1F2937",
-    marginLeft: 12,
-  },
-  linkText: {
-    fontSize: 16,
-    color: "#10B981",
-  },
-  signOutButton: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  signOutText: {
-    fontSize: 16,
-    color: "#EF4444",
-    fontWeight: "500",
-  },
-  version: {
-    textAlign: "center",
-    color: "#9CA3AF",
-    fontSize: 12,
-    marginTop: 24,
-    marginBottom: 40,
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginHorizontal: spacing.lg,
   },
 });

@@ -20,19 +20,23 @@ export function useSubscription() {
     error: null,
   });
 
+  // Load offerings on mount (doesn't require user)
+  useEffect(() => {
+    loadOfferings();
+  }, []);
+
+  // Check subscription status when user changes
   useEffect(() => {
     if (!user) {
-      setState({
+      setState((prev) => ({
+        ...prev,
         isSubscribed: false,
         loading: false,
-        offerings: { monthly: null, annual: null },
-        error: null,
-      });
+      }));
       return;
     }
 
     checkSubscription();
-    loadOfferings();
   }, [user]);
 
   const checkSubscription = useCallback(async () => {

@@ -1,79 +1,58 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
+import { colors } from "@/constants/theme";
 
-export default function LandingScreen() {
+export default function IndexScreen() {
   const router = useRouter();
-  const { user, initialized } = useAuth();
+  const { initialized, user } = useAuth();
 
   useEffect(() => {
-    if (initialized && user) {
-      router.replace("/(tabs)/search");
-    }
+    if (!initialized) return;
+
+    const checkOnboardingAndRoute = async () => {
+      try {
+        if (!user) {
+          // No user yet, wait for auth
+          return;
+        }
+
+        // Check database for onboarding status
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("has_completed_onboarding")
+          .eq("user_id", user.id)
+          .single();
+
+        // Show splash for a moment before navigating
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        if (profile?.has_completed_onboarding) {
+          router.replace("/(tabs)/search");
+        } else {
+          router.replace("/onboarding");
+        }
+      } catch {
+        // No profile found, go to onboarding
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        router.replace("/onboarding");
+      }
+    };
+
+    checkOnboardingAndRoute();
   }, [initialized, user]);
 
-  if (!initialized) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loading}>Loading...</Text>
-      </View>
-    );
-  }
-
+  // Show splash screen with USA map image while initializing
   return (
     <View style={styles.container}>
-      <View style={styles.hero}>
-        <Text style={styles.logo}>HiddenCash</Text>
-        <Text style={styles.tagline}>Find Money You Forgot About</Text>
-        <Text style={styles.subtitle}>
-          Search all 50 states for unclaimed property in your name.
-          Millions of dollars are waiting to be found!
-        </Text>
-      </View>
-
-      <View style={styles.features}>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>$</Text>
-          <Text style={styles.featureText}>
-            Over $80 billion in unclaimed property nationwide
-          </Text>
-        </View>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>50</Text>
-          <Text style={styles.featureText}>
-            Search all 50 state databases at once
-          </Text>
-        </View>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>!</Text>
-          <Text style={styles.featureText}>
-            Get notified when we find money for you
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.buttons}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => router.push("/(auth)/signup")}
-        >
-          <Text style={styles.primaryButtonText}>Get Started Free</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push("/(auth)/login")}
-        >
-          <Text style={styles.secondaryButtonText}>
-            Already have an account? Sign In
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.disclaimer}>
-        Search up to 3 states free. Unlimited searches with subscription.
-      </Text>
+      <Image
+        source={require("@/assets/hf_20260131_124108_e4de930d-540c-4084-80f3-0a6cab361eae.png")}
+        style={styles.logo}
+        contentFit="contain"
+      />
     </View>
   );
 }
@@ -81,89 +60,12 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
-  },
-  loading: {
-    textAlign: "center",
-    fontSize: 16,
-    color: "#666",
-  },
-  hero: {
+    backgroundColor: colors.white,
     alignItems: "center",
-    marginBottom: 48,
+    justifyContent: "center",
   },
   logo: {
-    fontSize: 42,
-    fontWeight: "bold",
-    color: "#10B981",
-    marginBottom: 8,
-  },
-  tagline: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#1F2937",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  features: {
-    marginBottom: 48,
-  },
-  feature: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    backgroundColor: "#F3F4F6",
-    padding: 16,
-    borderRadius: 12,
-  },
-  featureIcon: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#10B981",
-    width: 48,
-    textAlign: "center",
-  },
-  featureText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#374151",
-    marginLeft: 12,
-  },
-  buttons: {
-    marginBottom: 24,
-  },
-  primaryButton: {
-    backgroundColor: "#10B981",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  secondaryButtonText: {
-    color: "#6B7280",
-    fontSize: 15,
-  },
-  disclaimer: {
-    textAlign: "center",
-    fontSize: 13,
-    color: "#9CA3AF",
+    width: 280,
+    height: 280,
   },
 });

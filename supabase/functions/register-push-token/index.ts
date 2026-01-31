@@ -14,94 +14,82 @@ interface RegisterTokenRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Parse request body
     const body: RegisterTokenRequest = await req.json();
     const { token, device_id, platform } = body;
 
     if (!token) {
       return new Response(
         JSON.stringify({ error: "Missing push token" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate token format (Expo push tokens start with ExponentPushToken[)
-    if (!token.startsWith("ExponentPushToken[") && !token.startsWith("ExpoPushToken[")) {
+    if (
+      !token.startsWith("ExponentPushToken[") &&
+      !token.startsWith("ExpoPushToken[")
+    ) {
       return new Response(
         JSON.stringify({ error: "Invalid push token format" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Upsert the token
-    const { data, error: upsertError } = await supabaseClient
+    const authHeader = req.headers.get("Authorization");
+
+    // Create a Supabase client WITHOUT assuming auth exists
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    let userId: string | null = null;
+
+    // If auth header exists, try to resolve user
+    if (authHeader) {
+      const authedClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        {
+          global: {
+            headers: { Authorization: authHeader },
+          },
+        }
+      );
+
+      const { data } = await authedClient.auth.getUser();
+      userId = data.user?.id ?? null;
+    }
+
+    const resolvedDeviceId = device_id ?? crypto.randomUUID();
+
+    const { data, error } = await supabase
       .from("push_tokens")
       .upsert(
         {
-          user_id: user.id,
-          token: token,
-          device_id: device_id || null,
-          platform: platform || null,
+          token,
+          device_id: resolvedDeviceId,
+          user_id: userId,
+          platform: platform ?? null,
           is_active: true,
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_id,token",
+          onConflict: "device_id,token",
         }
       )
       .select("id")
       .single();
 
-    if (upsertError) {
-      console.error("Token registration error:", upsertError);
+    if (error) {
+      console.error("Push token upsert failed:", error);
       return new Response(
         JSON.stringify({ error: "Failed to register push token" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -109,18 +97,15 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         token_id: data.id,
-        message: "Push token registered successfully",
+        linked_to_user: !!userId,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

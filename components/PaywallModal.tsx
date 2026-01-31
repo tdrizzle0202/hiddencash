@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { PurchasesPackage } from "react-native-purchases";
+import { fonts } from "@/constants/theme";
 
 interface PaywallModalProps {
   visible: boolean;
@@ -33,7 +34,7 @@ export function PaywallModal({ visible, onClose, onSuccess }: PaywallModalProps)
     try {
       const success = await purchase(pkg);
       if (success) {
-        Alert.alert("Success!", "Welcome to HiddenCash Premium!", [
+        Alert.alert("Success!", "Welcome to LostCash Premium!", [
           { text: "OK", onPress: onSuccess },
         ]);
       }
@@ -183,13 +184,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
+    fontFamily: fonts.bold,
     color: "#1F2937",
     marginBottom: 12,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 24,
@@ -204,6 +206,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: "#374151",
     marginLeft: 12,
   },
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
   planBadgeText: {
     color: "#fff",
     fontSize: 10,
-    fontWeight: "bold",
+    fontFamily: fonts.bold,
   },
   planRadio: {
     width: 20,
@@ -259,16 +262,17 @@ const styles = StyleSheet.create({
   },
   planName: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: fonts.semiBold,
     color: "#1F2937",
   },
   planDescription: {
     fontSize: 13,
+    fontFamily: fonts.regular,
     color: "#6B7280",
   },
   planPrice: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontFamily: fonts.bold,
     color: "#1F2937",
   },
   purchaseButton: {
@@ -284,7 +288,7 @@ const styles = StyleSheet.create({
   purchaseButtonText: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "600",
+    fontFamily: fonts.semiBold,
   },
   restoreButton: {
     paddingVertical: 12,
@@ -292,10 +296,12 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     color: "#6B7280",
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   legal: {
     fontSize: 11,
+    fontFamily: fonts.regular,
     color: "#9CA3AF",
     textAlign: "center",
     marginTop: 16,

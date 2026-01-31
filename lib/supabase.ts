@@ -55,17 +55,22 @@ export interface SearchJob {
   created_at: string;
 }
 
+export type ClaimStatus = "new" | "viewed" | "liked" | "disliked" | "claimed" | "dismissed";
+
 export interface Claim {
   id: string;
   state_code: string;
   owner_name: string;
   owner_city: string | null;
+  owner_state: string | null;
+  owner_zip: string | null;
   property_type: string;
   holder_name: string;
   amount: number | null;
   amount_text: string | null;
   claim_url: string | null;
-  status: string;
+  reported_date: string | null;
+  status: ClaimStatus;
   is_locked?: boolean;
 }
 

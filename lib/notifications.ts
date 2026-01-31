@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
@@ -9,6 +10,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -49,8 +52,12 @@ class NotificationService {
 
     // Get push token
     try {
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ??
+        process.env.EXPO_PUBLIC_PROJECT_ID ??
+        "63df3cf3-5ccf-4308-8246-1504bb01f170";
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+        projectId,
       });
       this.pushToken = tokenData.data;
 
@@ -78,11 +85,38 @@ class NotificationService {
     if (!this.pushToken) {
       const result = await this.registerForPushNotifications();
       if (!result.token) {
+        console.log("No push token available, skipping registration");
         return false;
       }
     }
 
     try {
+      console.log("Registering push token:", this.pushToken);
+
+      // Verify we have a valid session by calling getUser (validates the JWT)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      console.log("Auth state for push registration:", {
+        hasUser: !!user,
+        userId: user?.id,
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        userError: userError?.message,
+      });
+
+      if (userError || !user) {
+        console.log("No valid session for push token registration, skipping");
+        return false;
+      }
+
+      // Get the access token to pass explicitly (supabase-js sometimes doesn't auto-include it)
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        console.log("No access token available for push token registration");
+        return false;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "register-push-token",
         {
@@ -90,14 +124,19 @@ class NotificationService {
             token: this.pushToken,
             platform: Platform.OS,
           },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
       );
 
       if (error) {
         console.error("Failed to register token with server:", error);
+        console.error("Error details:", JSON.stringify(error, null, 2));
         return false;
       }
 
+      console.log("Push token registered successfully:", data);
       return data?.success === true;
     } catch (error) {
       console.error("Token registration error:", error);

@@ -240,6 +240,9 @@ serve(async (req) => {
     if (cacheData?.[0]?.is_valid) {
       // Cache hit - link claims to user and return
       const cacheId = cacheData[0].cache_id
+      const cachedResultsCount = cacheData[0].results_count ?? 0
+      const cachedTotalPages = cacheData[0].total_pages ?? 1
+
       await supabase.rpc("link_claims_to_user", {
         p_user_id: user_id,
         p_search_profile_id: profile_id,
@@ -258,8 +261,8 @@ serve(async (req) => {
         success: true,
         cached: true,
         claims: claims || [],
-        total_results: cacheData[0].results_count,
-        total_pages: cacheData[0].total_pages || 1,
+        total_results: cachedResultsCount,
+        total_pages: cachedTotalPages,
       }), {
         headers: { "Content-Type": "application/json" },
       })
