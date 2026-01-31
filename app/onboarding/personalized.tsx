@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,10 +33,16 @@ const LOADING_STEPS = [
 const PROPERTY_TYPES = [
   "Utility Deposit",
   "Bank Account",
-  "Insurance Proceeds",
+  "Insurance Payout",
   "Uncashed Check",
   "Security Deposit",
   "Savings Account",
+  "Tax Refund",
+  "Payroll Check",
+  "Vendor Payment",
+  "Court Settlement",
+  "Stock Dividend",
+  "Escrow Balance",
 ];
 
 export default function PersonalizedScreen() {
@@ -56,23 +62,26 @@ export default function PersonalizedScreen() {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const loadingFadeAnim = useRef(new Animated.Value(1)).current;
-  const cardAnims = useRef([
-    { opacity: new Animated.Value(0), translateY: new Animated.Value(30) },
-    { opacity: new Animated.Value(0), translateY: new Animated.Value(30) },
-    { opacity: new Animated.Value(0), translateY: new Animated.Value(30) },
-  ]).current;
+  const cardAnims = useRef(
+    Array.from({ length: 10 }, () => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(30),
+    }))
+  ).current;
 
-  // Generate fake claims based on user's selected states
-  const fakeClaims = selectedStates.slice(0, 3).map((stateCode, index) => ({
-    stateCode,
-    propertyType: PROPERTY_TYPES[index % PROPERTY_TYPES.length],
-  }));
+  // Generate 10 fake claims based on user's selected states
+  const generateClaims = () => {
+    const states = selectedStates.length > 0
+      ? selectedStates
+      : ["CA", "NY", "TX", "FL", "IL"];
 
-  const claimsToShow = fakeClaims.length > 0 ? fakeClaims : [
-    { stateCode: "CA", propertyType: "Utility Deposit" },
-    { stateCode: "NY", propertyType: "Bank Account" },
-    { stateCode: "TX", propertyType: "Insurance Proceeds" },
-  ];
+    return Array.from({ length: 10 }, (_, index) => ({
+      stateCode: states[index % states.length],
+      propertyType: PROPERTY_TYPES[index % PROPERTY_TYPES.length],
+    }));
+  };
+
+  const claimsToShow = generateClaims();
 
   const fullName = firstName && lastName ? `${firstName} ${lastName}` : "";
 
@@ -218,11 +227,11 @@ export default function PersonalizedScreen() {
 
   return (
     <OnboardingScreen
-      ctaText="Start Filing Now"
+      ctaText="Claim My Money"
       onCtaPress={() => router.push("/onboarding/rate-app")}
     >
       <View style={styles.content}>
-        {/* Header with estimate */}
+        {/* Header */}
         <Animated.View
           style={[
             styles.headerContainer,
@@ -232,42 +241,38 @@ export default function PersonalizedScreen() {
             },
           ]}
         >
-          <View style={styles.resultsBadge}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-            <Text style={styles.claimsFoundText}>20+ Potential Claims Found</Text>
-          </View>
-
           <Text style={styles.amountHighlight}>
-            ${displayAmount.min.toLocaleString()} - ${displayAmount.max.toLocaleString()}
+            ${displayAmount.max.toLocaleString()}
           </Text>
-          <Text style={styles.amountLabel}>estimated unclaimed funds</Text>
+          <Text style={styles.amountLabel}>unclaimed</Text>
         </Animated.View>
 
         {/* Claims preview */}
-        <View style={styles.claimsContainer}>
-          {claimsToShow.map((claim, index) => (
-            <Animated.View
-              key={index}
-              style={{
-                opacity: cardAnims[index].opacity,
-                transform: [{ translateY: cardAnims[index].translateY }],
-              }}
-            >
-              <FakeClaimCard
-                stateCode={claim.stateCode}
-                propertyType={claim.propertyType}
-                ownerName={fullName}
-              />
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Lock message */}
-        <Animated.View style={[styles.lockMessage, { opacity: fadeAnim }]}>
-          <Ionicons name="lock-closed" size={18} color={colors.textSecondary} />
-          <Text style={styles.lockText}>
-            Unlock to see exact amounts and claim details
-          </Text>
+        <Animated.View style={[styles.claimsSection, { opacity: fadeAnim }]}>
+          <Text style={styles.claimsFoundLabel}>20+ claims found</Text>
+          <ScrollView
+            style={styles.claimsScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {claimsToShow.map((claim, index) => (
+              <Animated.View
+                key={index}
+                style={{
+                  opacity: cardAnims[index].opacity,
+                  transform: [{ translateY: cardAnims[index].translateY }],
+                }}
+              >
+                <FakeClaimCard
+                  stateCode={claim.stateCode}
+                  propertyType={claim.propertyType}
+                  ownerName={fullName}
+                />
+              </Animated.View>
+            ))}
+            <Text style={styles.disclaimer}>
+              These are sample claims for illustration only. Actual results vary. Based on NAUPA data showing $2,000 average claim.
+            </Text>
+          </ScrollView>
         </Animated.View>
       </View>
     </OnboardingScreen>
@@ -379,47 +384,38 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: spacing.lg,
-  },
-  resultsBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  claimsFoundText: {
-    fontSize: 16,
-    fontFamily: fonts.semiBold,
-    color: colors.primary,
-    marginLeft: spacing.xs,
+    marginBottom: spacing.xl,
   },
   amountHighlight: {
-    fontSize: 32,
-    fontFamily: fonts.bold,
+    fontSize: 56,
+    fontFamily: fonts.extraBold,
     color: colors.textPrimary,
     textAlign: "center",
   },
   amountLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: fonts.regular,
     color: colors.textSecondary,
     textAlign: "center",
   },
-  claimsContainer: {
+  claimsSection: {
     flex: 1,
   },
-  lockMessage: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.borderLight,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginTop: spacing.md,
+  claimsFoundLabel: {
+    fontSize: 15,
+    fontFamily: fonts.semiBold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
-  lockText: {
-    fontSize: 14,
+  claimsScroll: {
+    flex: 1,
+  },
+  disclaimer: {
+    fontSize: 12,
     fontFamily: fonts.regular,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
 });

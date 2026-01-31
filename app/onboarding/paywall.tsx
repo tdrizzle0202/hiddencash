@@ -108,17 +108,17 @@ export default function PaywallScreen() {
     {
       id: "monthly" as const,
       name: "Monthly",
-      price: offerings.monthly?.product.priceString || "$9.99",
-      pricePerMonth: offerings.monthly?.product.priceString || "$9.99",
+      price: offerings.monthly?.product.priceString || "$12.99",
+      pricePerMonth: offerings.monthly?.product.priceString || "$12.99",
       description: "/month",
     },
     {
       id: "annual" as const,
       name: "Annual",
-      price: offerings.annual?.product.priceString || "$39.99",
-      pricePerMonth: "$3.33",
+      price: offerings.annual?.product.priceString || "$34.99",
+      pricePerMonth: "$2.92",
       description: "/year",
-      badge: "SAVE 67%",
+      badge: "SAVE 78%",
     },
   ];
 
@@ -139,14 +139,12 @@ export default function PaywallScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Start Filing Now</Text>
-          <View style={styles.estimateContainer}>
-            <Text style={styles.estimateLabel}>Your potential</Text>
-            <Text style={styles.estimateAmount}>
-              ${estimatedAmount.min.toLocaleString()} - ${estimatedAmount.max.toLocaleString()}
-            </Text>
-            <Text style={styles.estimateLabel}>is waiting</Text>
-          </View>
+          <Text style={styles.estimateAmount}>
+            ${estimatedAmount.max.toLocaleString()}
+          </Text>
+          <Text style={styles.nameText}>
+            for {firstName?.charAt(0).toUpperCase()}{firstName?.slice(1).toLowerCase()} {lastName?.charAt(0).toUpperCase()}{lastName?.slice(1).toLowerCase()}
+          </Text>
         </View>
 
         <View style={styles.features}>
@@ -268,26 +266,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.xl,
   },
-  title: {
+  nameText: {
     fontSize: 28,
     fontFamily: fonts.bold,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  estimateContainer: {
-    alignItems: "center",
-    width: "100%",
-  },
-  estimateLabel: {
-    fontSize: 16,
-    fontFamily: fonts.regular,
-    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   estimateAmount: {
-    fontSize: 36,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-    marginVertical: spacing.xs,
+    fontSize: 56,
+    fontFamily: fonts.extraBold,
+    color: colors.textPrimary,
   },
   features: {
     marginBottom: spacing.xl,

@@ -296,13 +296,13 @@ export default function SpecialOfferScreen() {
 
                         <View style={styles.priceContainer}>
                             <View style={styles.discountBadge}>
-                                <Text style={styles.discountBadgeText}>87% OFF</Text>
+                                <Text style={styles.discountBadgeText}>43% OFF</Text>
                             </View>
                             <View style={styles.priceRow}>
-                                <Text style={styles.originalPrice}>$149.99</Text>
+                                <Text style={styles.originalPrice}>$34.99</Text>
                                 <Text style={styles.specialPrice}>$19.99</Text>
                             </View>
-                            <Text style={styles.perMonthText}>Just $1.66/month</Text>
+                            <Text style={styles.perMonthText}>Just $1.67/month</Text>
                             <Text style={styles.billedText}>Billed annually</Text>
                         </View>
 
