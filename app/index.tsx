@@ -49,7 +49,7 @@ export default function IndexScreen() {
   return (
     <View style={styles.container}>
       <Image
-        source={require("@/assets/hf_20260131_124108_e4de930d-540c-4084-80f3-0a6cab361eae.png")}
+        source={require("@/assets/adaptive-icon.png")}
         style={styles.logo}
         contentFit="contain"
       />
