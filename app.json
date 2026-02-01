@@ -17,6 +17,8 @@
     ],
     "ios": {
       "supportsTablet": false,
+      "isTabletOnly": false,
+      "requireFullScreen": true,
       "bundleIdentifier": "com.terrykim.hiddencash",
       "backgroundColor": "#F9FAFB",
       "usesAppleSignIn": true,
